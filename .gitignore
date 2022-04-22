@@ -2,4 +2,5 @@
 /public/build/
 *~
 deploy.sh
+package-lock.json
 .DS_Store
