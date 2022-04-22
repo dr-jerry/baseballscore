@@ -1,88 +1,112 @@
 <script>
 	// Inspired by https://svelte.dev/repl/810b0f1e16ac4bbd8af8ba25d5e0deff?version=3.4.2.
 	import {flip} from 'svelte/animate';
+	
 	let names = ["Arno", "Finn", "Sasha", "Djaeno", "Stefan"];
-	let baskets = [
-    {
-      "name": "Basket 1",
-      "items": ["Orange", "Pineapple"]
-    },
-    {
-      "name": "Basket 2",
-      "items": ["Banana", "Apple"]
-    },
-		{
-      "name": "Basket 3",
-      "items": ["GrapeFruit"]
-    }
-  ];
-	
-	let hoveringOverBasket;
-	
-	function dragStart(event, basketIndex, itemIndex) {
-		// The data we want to make available when the element is dropped
-                // is the index of the item being dragged and
-                // the index of the basket from which it is leaving.
-		const data = {basketIndex, itemIndex};
-   	event.dataTransfer.setData('text/plain', JSON.stringify(data));
+
+	let bench = names.map((n,i) => ({name: n, scores: [], index: i}))
+	let honks = [[],[],[],[]];
+
+	function dragStart(event, source, player) {
+		//event.preventDefault();
+		let data = JSON.stringify({source, player});
+		event.dataTransfer.setData('text/plain', data);
 	}
 	
-	function drop(event, basketIndex) {
-		event.preventDefault();
-    const json = event.dataTransfer.getData("text/plain");
-		const data = JSON.parse(json);
-		
-		// Remove the item from one basket.
-		// Splice returns an array of the deleted elements, just one in this case.
-		const [item] = baskets[data.basketIndex].items.splice(data.itemIndex, 1);
-		
-    // Add the item to the drop target basket.
-		baskets[basketIndex].items.push(item);
-		baskets = baskets;
-		
-		hoveringOverBasket = null;
+	function movePlayer(event, target) {
+		event.preventDefault
+		let thePlayer = JSON.parse(event.dataTransfer.getData("text/plain"));
+		console.log("" + thePlayer + " hello ");
+		console.log("dropped" + thePlayer + " source from bench " + thePlayer.source === "bench");
+
+		if (thePlayer.source === "bench" && target === "home") { 
+			console.log(JSON.stringify(thePlayer))
+			bench = bench.filter((player, i) => i !== 0)
+			honks = [[...honks[0],thePlayer.player], ...honks.slice(1,4)];
+		} else if (target = "one" && thePlayer.source === "home") {
+			honks = [[], [...honks[1],thePlayer.player], ...honks.slice(2,4)];
+		} else if (target = "two" && thePlayer.source === "one") {
+			honks = [[...honks[0]], [...honks[1].slice(1, honks[1].lastIndexOf)], [...honks[2],thePlayer.player], [...honks[3]]];
+		} else if (target = "three" && thePlayer.source === "two") {
+			honks = [[...honks[0]], [...honks[1]],[...honks[2].slice(1, honks[2].lastIndexOf)], [...honks[3],thePlayer.player]];
+		} else if (target = "home" && thePlayer.source === "three") {
+			honks = [...honks.slice(0,3),[...honks[3].slice(1,honks[3].length)]];
+			bench = [...bench, {...thePlayer.player, scores: [...thePlayer.player.scores,1]}]
+		}
+
 	}
+
 </script>
 
 <p>Drag a fruit from one basket to another.</p>
 <div class="bench">
-  {#each names as name, nameIndex(name) }
-    <div class="player" draggable={nameIndex == 0} on:dragStart={event => startPlay(event, "home", nameIndex)}>
-      {name}
+  {#each bench as player, nameIndex(player) }
+    <div class="player" draggable={nameIndex == 0} on:dragstart={event => dragStart(event, "bench", player)}>
+      {player.name}
 	</div>
   {/each}
 </div>
-
-{#each baskets as basket, basketIndex(basket) }
-  <div animate:flip>
-    <b>{basket.name}</b>
-    <ul
-	  	class:hovering={hoveringOverBasket === basket.name}
-	    on:dragenter={() => hoveringOverBasket = basket.name}
-      on:dragleave={() => hoveringOverBasket = null}
-  		on:drop={event => drop(event, basketIndex)}
-  		ondragover="return false"
-    >
-	    {#each basket.items as item, itemIndex (item)}
-			  <div class="item" animate:flip>
-	      	<li
-	    	    draggable={true}
-		  		  on:dragstart={event => dragStart(event, basketIndex, itemIndex)}
-		    	>
-		      	{item}
-	    	  </li>
-			  </div>
-	    {/each}
-    </ul>
-  </div>
-{/each}
+<div class="field">
+	<div class="row">
+		<div class="honk left" id="home" on:dragenter={(event) => {event.preventDefault()}}
+			on:dragleave={() => console.log("leave home")}
+			on:drop={event => movePlayer(event)}
+			ondragover="return false">
+		home
+		{#if honks[0] !== undefined && honks[0].length>1}
+		   {#each honks[0] as player, i(player)}
+		   <div clas="player honk" draggable={i == 0} on:dragstart={event => dragStart(event, "home", player)}>{player.name}</div>
+		   {/each}
+		{/if}
+		</div>
+		<div class="honk right" id="three">
+			Three
+		</div>
+	</div>
+	<div class="row">
+		<div class="honk left" id="one">
+		one
+		</div>
+		<div class="honk right" id="two">
+			two
+		</div>
+	</div>
+</div>
 
 <style>
+	.field {
+		width: 68%;
+		background-color: green;
+		float: right;
+		display: block;
+	}
+	.row {
+		display: block;
+		width: 100%;
+	}
+ 
   .bench {
      width: 30%;
      float: left;
      margin-left: 0.2em;
   }
+  .honk {
+	  margin: 1em;
+	  border: 0.2em;
+	  background-color: black;
+	  width: 2.5em;
+	  height: 4em;
+	  color: white;
+	  padding: 0.8em;
+  }
+  .honk.left {
+	  float: left;
+	  clear:right;
+  }
+  .honk.right {
+	  float: right;
+  }
+
   .player {
      display: inline-block;
      background-color: lightgray;
@@ -96,7 +120,7 @@
 	  background-color: blueviolet;
 	  color: red;
   }
-     
+    
 	.hovering {
 		border-color: orange;
 	}
