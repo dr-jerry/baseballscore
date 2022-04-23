@@ -16,8 +16,8 @@
 	function movePlayer(event, target) {
 		event.preventDefault
 		let thePlayer = JSON.parse(event.dataTransfer.getData("text/plain"));
-		console.log("" + thePlayer + " hello ");
-		console.log("dropped" + thePlayer + " source from bench " + thePlayer.source === "bench");
+		console.log("target: " + target + " player: " + thePlayer.name + " hello ");
+		console.log("honks " + JSON.stringify(honks));
 
 		if (thePlayer.source === "bench" && target === "home") { 
 			console.log(JSON.stringify(thePlayer))
@@ -26,13 +26,14 @@
 		} else if (target = "one" && thePlayer.source === "home") {
 			honks = [[], [...honks[1],thePlayer.player], ...honks.slice(2,4)];
 		} else if (target = "two" && thePlayer.source === "one") {
-			honks = [[...honks[0]], [...honks[1].slice(1, honks[1].lastIndexOf)], [...honks[2],thePlayer.player], [...honks[3]]];
+			honks = [[...honks[0]], [...honks[1].slice(1, honks[1].length)], [...honks[2],thePlayer.player], [...honks[3]]];
 		} else if (target = "three" && thePlayer.source === "two") {
-			honks = [[...honks[0]], [...honks[1]],[...honks[2].slice(1, honks[2].lastIndexOf)], [...honks[3],thePlayer.player]];
+			honks = [[...honks[0]], [...honks[1]],[...honks[2].slice(1, honks[2].length)], [...honks[3],thePlayer.player]];
 		} else if (target = "home" && thePlayer.source === "three") {
 			honks = [...honks.slice(0,3),[...honks[3].slice(1,honks[3].length)]];
 			bench = [...bench, {...thePlayer.player, scores: [...thePlayer.player.scores,1]}]
-		}
+		} 
+		console.log("honks is " + JSON.stringify(honks))
 
 	}
 
@@ -50,25 +51,49 @@
 	<div class="row">
 		<div class="honk left" id="home" on:dragenter={(event) => {event.preventDefault()}}
 			on:dragleave={() => console.log("leave home")}
-			on:drop={event => movePlayer(event)}
+			on:drop={event => movePlayer(event, "home")}
 			ondragover="return false">
 		home
-		{#if honks[0] !== undefined && honks[0].length>1}
+		{#if honks[0] !== undefined && honks[0].length>0}
 		   {#each honks[0] as player, i(player)}
 		   <div clas="player honk" draggable={i == 0} on:dragstart={event => dragStart(event, "home", player)}>{player.name}</div>
 		   {/each}
 		{/if}
 		</div>
-		<div class="honk right" id="three">
-			Three
+		<div class="honk right" id="three" on:dragenter={(event) => {event.preventDefault()}}
+			on:dragleave={() => console.log("leave three")}
+			on:drop={event => movePlayer(event, "three")}
+			ondragover="return false">
+		3
+		{#if honks[3] !== undefined && honks[3].length>0}
+		   {#each honks[3] as player, i(player)}
+		   <div clas="player honk" draggable={i == 0} on:dragstart={event => dragStart(event, "three", player)}>{player.name}</div>
+		   {/each}
+		{/if}
 		</div>
 	</div>
 	<div class="row">
-		<div class="honk left" id="one">
-		one
+		<div class="honk left" id="one" on:dragenter={(event) => {event.preventDefault()}}
+			on:dragleave={() => console.log("leave one")}
+			on:drop={event => movePlayer(event, "one")}
+			ondragover="return false">
+		1
+		{#if honks[1] !== undefined && honks[1].length>0}
+		   {#each honks[1] as player, i(player)}
+		   <div clas="player honk" draggable={i == 0} on:dragstart={event => dragStart(event, "one", player)}>{player.name}</div>
+		   {/each}
+		{/if}
 		</div>
-		<div class="honk right" id="two">
-			two
+		<div class="honk right" id="two" on:dragenter={(event) => {event.preventDefault()}}
+			on:dragleave={() => console.log("leave two")}
+			on:drop={event => movePlayer(event, "three")}
+			ondragover="return false">
+		2
+		{#if honks[2] !== undefined && honks[2].length>0}
+		   {#each honks[2] as player, i(player)}
+		   <div clas="player honk" draggable={i == 0} on:dragstart={event => dragStart(event, "two", player)}>{player.name}</div>
+		   {/each}
+		{/if}
 		</div>
 	</div>
 </div>
