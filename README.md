@@ -13,6 +13,7 @@ Also beware that I'm Dutch and I have no baseball experience.
 ## todo
 - record out & strikes
 - more styling.
-- rocord innings
+- addapt players ordering on bench with initial orderding.
+- record innings
 - add a second team
 - add backend functionality.
