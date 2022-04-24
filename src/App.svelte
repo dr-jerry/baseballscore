@@ -11,47 +11,57 @@
 		//event.preventDefault();
 		let data = JSON.stringify({source, player});
 		event.dataTransfer.setData('text/plain', data);
+		console.log("set " + data);
 	}
 	
 	function movePlayer(event, target) {
-		event.preventDefault
+		event.preventDefault();
+		// without above, iPhone and iPad forward the page to a google page with the dataTransfer in the search bar.
 		let thePlayer = JSON.parse(event.dataTransfer.getData("text/plain"));
-		console.log("target: " + target + " player: " + thePlayer.name + " hello ");
+		console.log("target: " + target + " source : " + thePlayer.source + " player: " +  JSON.stringify(thePlayer) + " hello ");
 		console.log("honks " + JSON.stringify(honks));
-
 		if (thePlayer.source === "bench" && target === "home") { 
 			console.log(JSON.stringify(thePlayer))
 			bench = bench.filter((player, i) => i !== 0)
 			honks = [[...honks[0],thePlayer.player], ...honks.slice(1,4)];
-		} else if (target = "one" && thePlayer.source === "home") {
+		} else if (target === "one" && thePlayer.source === "home") {
 			honks = [[], [...honks[1],thePlayer.player], ...honks.slice(2,4)];
-		} else if (target = "two" && thePlayer.source === "one") {
+		} else if (target === "two" && thePlayer.source === "one") {
 			honks = [[...honks[0]], [...honks[1].slice(1, honks[1].length)], [...honks[2],thePlayer.player], [...honks[3]]];
-		} else if (target = "three" && thePlayer.source === "two") {
+		} else if (target === "three" && thePlayer.source === "two") {
 			honks = [[...honks[0]], [...honks[1]],[...honks[2].slice(1, honks[2].length)], [...honks[3],thePlayer.player]];
-		} else if (target = "home" && thePlayer.source === "three") {
+		} else if (target === "home" && thePlayer.source === "three") {
 			honks = [...honks.slice(0,3),[...honks[3].slice(1,honks[3].length)]];
-			bench = [...bench, {...thePlayer.player, scores: [...thePlayer.player.scores,1]}]
-		} 
+			bench = [...bench, {...thePlayer.player, scores: [...thePlayer.player.scores,"1"]}]
+		} else if (target === "bench") {
+			honks = honks.map(h => h.filter(p => p.name !== thePlayer.player.name));
+			
+			// [[...honks[0].filtet(p => p !== player)],[...honks[1].filtet(p => p !== player)]
+			// 	,[...honks[2].filtet(p => p !== player)],[...honks[3].filtet(p => p !== player)]];
+			bench = [...bench, {...thePlayer.player, scores: [...thePlayer.player.scores,"0"]}]
+		}
 		console.log("honks is " + JSON.stringify(honks))
 
 	}
 
 </script>
 
-<p>Drag a fruit from one basket to another.</p>
-<div class="bench">
+<p>Drag Your players on the bases.</p>
+<div class="bench" on:dragenter={(event) => {event.preventDefault();console.log("enter bench" + event.dataTransfer.getData("text/plain"))}}
+	on:dragleave={() => console.log("leave bench")}
+	on:drop={event => {console.log("drop with: " + JSON.stringify(event));movePlayer(event, "bench")}}
+	ondragover="return false">
   {#each bench as player, nameIndex(player) }
     <div class="player" draggable={nameIndex == 0} on:dragstart={event => dragStart(event, "bench", player)}>
-      {player.name}
+      {player.name + " : " + player.scores.join(',')}
 	</div>
   {/each}
 </div>
 <div class="field">
 	<div class="row">
-		<div class="honk left" id="home" on:dragenter={(event) => {event.preventDefault()}}
+		<div class="honk left" id="home" on:dragenter={(event) => {event.preventDefault();console.log("enter bench" + event.dataTransfer.getData("text/plain"))}}
 			on:dragleave={() => console.log("leave home")}
-			on:drop={event => movePlayer(event, "home")}
+			on:drop={event => {console.log("drop with: " + JSON.stringify(event));movePlayer(event, "home")}}
 			ondragover="return false">
 		home
 		{#if honks[0] !== undefined && honks[0].length>0}
@@ -86,7 +96,7 @@
 		</div>
 		<div class="honk right" id="two" on:dragenter={(event) => {event.preventDefault()}}
 			on:dragleave={() => console.log("leave two")}
-			on:drop={event => movePlayer(event, "three")}
+			on:drop={event => movePlayer(event, "two")}
 			ondragover="return false">
 		2
 		{#if honks[2] !== undefined && honks[2].length>0}
@@ -114,6 +124,7 @@
      width: 30%;
      float: left;
      margin-left: 0.2em;
+	 padding-left: 0.4em;
   }
   .honk {
 	  margin: 1em;
