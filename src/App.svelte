@@ -2,10 +2,37 @@
 	// Inspired by https://svelte.dev/repl/810b0f1e16ac4bbd8af8ba25d5e0deff?version=3.4.2.
 	import {flip} from 'svelte/animate';
 	
-	let names = ["Arno", "Finn", "Sasha", "Djaeno", "Stefan"];
+	let theGame = {"thuis": {innings: [{points: 0, outs: 0}],"border-color": "orange", "bg-color": "blue", "text-color": "white", teamname: "thamen hbu12"
+	, names:["Arno", "Finn", "Sasha", "Djaeno", "Steffan", "Jayjay", "Pascal"], loc: "field"},
+	   "uit": {innings: [{points: 0, outs: 0}], "border-color": "red", "bg-color": "yellow", "text-color": "black", teamname: "ovvo-survivors hbu2"
+	   , names:["Jack", "Frans", "Arie", "Dessel", "Nour", "Izzy", "Ben"], loc: "betting"}}
 
-	let bench = names.map((n,i) => ({name: n, scores: [], index: i}))
-	let honks = [[],[],[],[]];
+	let batting = "uit";
+
+	function baseOccupation(teams, teamid) {
+		const locs = ["bench", "home", "one", "two", "three"]
+		return locs.reduce((map, loc) => {map[loc] = findPlayers(loc, teams, teamid);
+					return map}, {})
+	}
+
+	function findPlayers(loc, teams, teamid) {
+		console.log("find players " + loc);
+		let result = teams[teamid].players ? teams[teamid].players.filter(p => p.loc === loc) : []
+		return result;
+	}
+	$: bases = baseOccupation(theGame, batting)
+	$: console.log("bases" + JSON.stringify(bases));
+
+	function modifyPlayer(ind, index, value) {
+		let players = theGame[ind].players
+		let thePlayer = players[index]
+
+		return {...theGame, ...{[ind]: {...theGame[ind], 
+			...{players: [...players.slice(0,index), {...thePlayer, ...value}, ...players.slice(index + 1)]}}}}
+	}
+
+	theGame.thuis.players = theGame.thuis.names.map((n,i) => ({name: n, innings: [{bat: "", score: 0, out:0}], loc: "field", index: i, teamname: theGame.thuis.teamname}))
+	theGame.uit.players = theGame.uit.names.map((n,i) => ({name: n, innings: [{bat: "", score:0, out: 0}], loc: "bench", index: i, teamname: theGame.thuis.teamname}))
 
 	function dragStart(event, source, player) {
 		//event.preventDefault();
@@ -14,16 +41,14 @@
 		console.log("set " + data);
 	}
 	
-	function movePlayer(event, target) {
+	function movePlayer(event, target, teamid) {
 		event.preventDefault();
 		// without above, iPhone and iPad forward the page to a google page with the dataTransfer in the search bar.
 		let thePlayer = JSON.parse(event.dataTransfer.getData("text/plain"));
 		console.log("target: " + target + " source : " + thePlayer.source + " player: " +  JSON.stringify(thePlayer) + " hello ");
-		console.log("honks " + JSON.stringify(honks));
+		//console.log("honks " + JSON.stringify(honks));
 		if (thePlayer.source === "bench" && target === "home") { 
-			console.log(JSON.stringify(thePlayer))
-			bench = bench.filter((player, i) => i !== 0)
-			honks = [[...honks[0],thePlayer.player], ...honks.slice(1,4)];
+			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "home"})
 		} else if (target === "one" && thePlayer.source === "home") {
 			honks = [[], [...honks[1],thePlayer.player], ...honks.slice(2,4)];
 		} else if (target === "two" && thePlayer.source === "one") {
@@ -40,7 +65,7 @@
 			// 	,[...honks[2].filtet(p => p !== player)],[...honks[3].filtet(p => p !== player)]];
 			bench = [...bench, {...thePlayer.player, scores: [...thePlayer.player.scores,"0"]}]
 		}
-		console.log("honks is " + JSON.stringify(honks))
+//		console.log("honks is " + JSON.stringify(honks))
 
 	}
 
@@ -51,9 +76,9 @@
 	on:dragleave={() => console.log("leave bench")}
 	on:drop={event => {console.log("drop with: " + JSON.stringify(event));movePlayer(event, "bench")}}
 	ondragover="return false">
-  {#each bench as player, nameIndex(player) }
+  {#each bases["bench"] as player, nameIndex(player)}
     <div class="player" draggable={nameIndex == 0} on:dragstart={event => dragStart(event, "bench", player)}>
-      {player.name + " : " + player.scores.join(',')}
+      {player.name}
 	</div>
   {/each}
 </div>
@@ -64,22 +89,18 @@
 			on:drop={event => {console.log("drop with: " + JSON.stringify(event));movePlayer(event, "home")}}
 			ondragover="return false">
 		home
-		{#if honks[0] !== undefined && honks[0].length>0}
-		   {#each honks[0] as player, i(player)}
+		   {#each bases["home"] as player, i(player)}
 		   <div clas="player honk" draggable={i == 0} on:dragstart={event => dragStart(event, "home", player)}>{player.name}</div>
 		   {/each}
-		{/if}
 		</div>
 		<div class="honk right" id="three" on:dragenter={(event) => {event.preventDefault()}}
 			on:dragleave={() => console.log("leave three")}
 			on:drop={event => movePlayer(event, "three")}
 			ondragover="return false">
 		3
-		{#if honks[3] !== undefined && honks[3].length>0}
-		   {#each honks[3] as player, i(player)}
+		   {#each bases["three"] as player, i(player)}
 		   <div clas="player honk" draggable={i == 0} on:dragstart={event => dragStart(event, "three", player)}>{player.name}</div>
 		   {/each}
-		{/if}
 		</div>
 	</div>
 	<div class="row">
@@ -88,22 +109,18 @@
 			on:drop={event => movePlayer(event, "one")}
 			ondragover="return false">
 		1
-		{#if honks[1] !== undefined && honks[1].length>0}
-		   {#each honks[1] as player, i(player)}
+		   {#each bases["one"] as player, i(player)}
 		   <div clas="player honk" draggable={i == 0} on:dragstart={event => dragStart(event, "one", player)}>{player.name}</div>
 		   {/each}
-		{/if}
 		</div>
 		<div class="honk right" id="two" on:dragenter={(event) => {event.preventDefault()}}
 			on:dragleave={() => console.log("leave two")}
 			on:drop={event => movePlayer(event, "two")}
 			ondragover="return false">
 		2
-		{#if honks[2] !== undefined && honks[2].length>0}
-		   {#each honks[2] as player, i(player)}
+		   {#each bases["two"] as player, i(player)}
 		   <div clas="player honk" draggable={i == 0} on:dragstart={event => dragStart(event, "two", player)}>{player.name}</div>
 		   {/each}
-		{/if}
 		</div>
 	</div>
 </div>
