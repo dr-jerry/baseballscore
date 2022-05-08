@@ -4,10 +4,20 @@
 	
 	let theGame = {"thuis": {innings: [{points: 0, outs: 0}],"border-color": "orange", "bg-color": "blue", "text-color": "white", teamname: "thamen hbu12"
 	, names:["Arno", "Finn", "Sasha", "Djaeno", "Steffan", "Jayjay", "Pascal"], loc: "field"},
-	   "uit": {innings: [{points: 0, outs: 0}], "border-color": "red", "bg-color": "yellow", "text-color": "black", teamname: "ovvo-survivors hbu2"
+	   "uit": {innings: [{points: 0, outs: 0, bats: ""}], "border-color": "red", "bg-color": "yellow", "text-color": "black", teamname: "ovvo-survivors hbu2"
 	   , names:["Jack", "Frans", "Arie", "Dessel", "Nour", "Izzy", "Ben"], loc: "betting"}}
 
+    theGame.thuis.players = theGame.thuis.names.map((n,i) => ({name: n, innings: [{bats: "", loc: "bench"}], loc: "field", index: i, teamname: theGame.thuis.teamname}))
+	theGame.uit.players = theGame.uit.names.map((n,i) => ({name: n, innings: [{bats: "", loc: "bench"}], loc: "bench", index: i, teamname: theGame.uit.teamname}))
+
 	let batting = "uit";
+	let round = 1;
+
+	function doBat(char) {
+		let index = bases["home"][0].index
+		let bat = theGame[batting].players[index].innings.slice(-1)[0].bats
+		theGame = modifyPlayer(batting, index, {inning: {bats: `${bat}${char}`}})
+	}
 
 	function baseOccupation(teams, teamid) {
 		const locs = ["bench", "home", "one", "two", "three"]
@@ -17,22 +27,22 @@
 
 	function findPlayers(loc, teams, teamid) {
 		console.log("find players " + loc);
-		let result = teams[teamid].players ? teams[teamid].players.filter(p => p.loc === loc) : []
-		return result;
+		return teams[teamid].players ? teams[teamid].players.filter(p => p.loc === loc) : []
 	}
+
 	$: bases = baseOccupation(theGame, batting)
 	$: console.log("bases" + JSON.stringify(bases));
 
 	function modifyPlayer(ind, index, value) {
 		let players = theGame[ind].players
 		let thePlayer = players[index]
-
+		const {inning, ...rest} = value
+		let thisInning = {...thePlayer.innings.slice(-1)[0], ...inning}
 		return {...theGame, ...{[ind]: {...theGame[ind], 
-			...{players: [...players.slice(0,index), {...thePlayer, ...value}, ...players.slice(index + 1)]}}}}
+			...{players: [...players.slice(0,index), 
+				{...thePlayer, ...rest, ...{innings : [...thePlayer.innings.slice(0,-1), thisInning]}}
+					, ...players.slice(index + 1)]}}}}
 	}
-
-	theGame.thuis.players = theGame.thuis.names.map((n,i) => ({name: n, innings: [{bat: "", score: 0, out:0}], loc: "field", index: i, teamname: theGame.thuis.teamname}))
-	theGame.uit.players = theGame.uit.names.map((n,i) => ({name: n, innings: [{bat: "", score:0, out: 0}], loc: "bench", index: i, teamname: theGame.thuis.teamname}))
 
 	function dragStart(event, source, player) {
 		//event.preventDefault();
@@ -50,14 +60,14 @@
 		if (thePlayer.source === "bench" && target === "home") { 
 			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "home"})
 		} else if (target === "one" && thePlayer.source === "home") {
-			honks = [[], [...honks[1],thePlayer.player], ...honks.slice(2,4)];
+			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "one"})
 		} else if (target === "two" && thePlayer.source === "one") {
-			honks = [[...honks[0]], [...honks[1].slice(1, honks[1].length)], [...honks[2],thePlayer.player], [...honks[3]]];
+			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "two"})
 		} else if (target === "three" && thePlayer.source === "two") {
-			honks = [[...honks[0]], [...honks[1]],[...honks[2].slice(1, honks[2].length)], [...honks[3],thePlayer.player]];
+			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "three"})
 		} else if (target === "home" && thePlayer.source === "three") {
-			honks = [...honks.slice(0,3),[...honks[3].slice(1,honks[3].length)]];
-			bench = [...bench, {...thePlayer.player, scores: [...thePlayer.player.scores,"1"]}]
+			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "bench"})
+			theGame = modifyPlayer(batting, thePlayer.player.index, {inning: {nr: round, score: "1"}})
 		} else if (target === "bench") {
 			honks = honks.map(h => h.filter(p => p.name !== thePlayer.player.name));
 			
@@ -65,12 +75,14 @@
 			// 	,[...honks[2].filtet(p => p !== player)],[...honks[3].filtet(p => p !== player)]];
 			bench = [...bench, {...thePlayer.player, scores: [...thePlayer.player.scores,"0"]}]
 		}
-//		console.log("honks is " + JSON.stringify(honks))
+		console.log("honks is " + JSON.stringify(theGame))
 
 	}
 
 </script>
-
+{#if bases["home"].length > 0}
+<div><div class ="button" on:click={e => doBat("S")}>Strike</div><div class="button" on:click={e => doBat("B")}>Ball</div></div>
+{/if}
 <p>Drag Your players on the bases.</p>
 <div class="bench" on:dragenter={(event) => {event.preventDefault();console.log("enter bench" + event.dataTransfer.getData("text/plain"))}}
 	on:dragleave={() => console.log("leave bench")}
