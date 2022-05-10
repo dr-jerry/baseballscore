@@ -13,10 +13,28 @@
 	let batting = "uit";
 	let round = 1;
 
+	function playerScores (player) {
+		let scores = player.innings.filter(i => 'score' in i).map(i => i.score);
+		return scores.length > 0 ? `: ${scores.join(",")}` : ''
+	}
+
+	function getBats(bs, char) {
+		let re = new RegExp(char, "g")
+		return (bases["home"][0].innings.slice(-1)[0].bats.match(re) || []).length
+	}
+
 	function doBat(char) {
 		let index = bases["home"][0].index
-		let bat = theGame[batting].players[index].innings.slice(-1)[0].bats
-		theGame = modifyPlayer(batting, index, {inning: {bats: `${bat}${char}`}})
+		let bat = theGame[batting].players[index].innings.slice(-1)[0].bats + char
+		theGame = modifyPlayer(batting, index, {inning: {bats: bat}})
+	}
+
+	function getScore(teams, ind) {
+		return teams[ind].players.reduce((acc, p) => {
+			let l = p.innings.filter(i => i.score === 1).length;
+		    console.log("returning: " + l + " + " + acc + " = " + (l+acc));
+		    return l + acc
+		},0)
 	}
 
 	function baseOccupation(teams, teamid) {
@@ -27,28 +45,29 @@
 
 	function findPlayers(loc, teams, teamid) {
 		return teams[teamid].players ? teams[teamid].players.filter(p => p.loc === loc).sort((a, b) => {
-			console.log("sorting for " + loc)
 			let result = 0;
 			if (a.innings.length > b.innings.length) result = 1
 			else if (a.innings.length < b.innings.length) result = -1
 			else if (a.index > b.index) result = 1
 			else if (a.index < b.index) result = -1
 			else result = 0;
-			console.log("sorting for " + loc + " result: " + result + " (" + a.innings.length + " vs " + b.innings.length + ")")
 		    return result
 		}) : []
 	}
 
 	$: bases = baseOccupation(theGame, batting)
-	$: console.log("bases" + JSON.stringify(bases));
 
 	function modifyPlayer(ind, index, value) {
+		// returns a modified game state.
+		// ind -> "thuis (receivers)" or "uit (visitors)"; index: bench index of player (sequential order), 
+		// value: new value to be added, value can contain an inning which will be merged with last inning.
+		// location in value will be copied into inning location.
+
 		let players = theGame[ind].players
 		let thePlayer = players[index]
 		const {inning, ...rest} = value
 		let inLoc = ((rest && rest.loc) ? {loc: rest.loc} : {})
 		let thisInning = {...thePlayer.innings.slice(-1)[0], ...inning, ...inLoc}
-		//let thisInning = {...thePlayer.innings.slice(-1)[0], ...{inning, ...(rest.loc ? {loc: rest.loc}: {})}}
 		return {...theGame, ...{[ind]: {...theGame[ind], 
 			...{players: [...players.slice(0,index), 
 				{...thePlayer, ...rest, ...{innings : [...thePlayer.innings.slice(0,-1)
@@ -84,23 +103,24 @@
 		} else if (target === "bench") {
 			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "bench", inning: {nr: round, score: 0, out: true}})
 		}
-		console.log("honks is " + JSON.stringify(theGame))
-
 	}
 
 </script>
-{#if bases["home"].length > 0}
-<div><div class ="button" on:click={e => doBat("S")}>Strike</div><div class="button" on:click={e => doBat("B")}>Ball</div></div>
-{/if}
+<div><div class="left half span"><span class="left">{theGame["thuis"].teamname}</span>
+	<span class="right score points">{getScore(theGame, "thuis")}</span></div>
+	<div class="right half span"><span class="left score points">{getScore(theGame, "uit")}</span>
+		<span class="right">{theGame["uit"].teamname}</span></div></div>
 <p>Drag Your players on the bases.</p>
-<div class="bench" on:dragenter={(event) => {event.preventDefault();console.log("enter bench" + event.dataTransfer.getData("text/plain"))}}
-	on:dragleave={() => console.log("leave bench")}
-	on:drop={event => {console.log("drop with: " + JSON.stringify(event))
-	movePlayer(event, "bench")}}
+<div class="bench" on:dragenter={(event) => {event.preventDefault();}}
+	on:drop={event => movePlayer(event, "bench")}
 	ondragover="return false">
+	{#if bases["home"].length > 0}
+	<div><span class ="button left" on:click={e => doBat("S")}>Strike {getBats(bases, "S")}</span>
+	      <span class="button right" on:click={e => doBat("B")}>Ball {getBats(bases, "B")}</span></div>
+	{/if}
   {#each bases["bench"] as player, nameIndex(player)}
     <div class="player" draggable={nameIndex == 0} on:dragstart={event => dragStart(event, "bench", player)}>
-      {player.name}
+      {player.name} {playerScores(player)}
 	</div>
   {/each}
 </div>
@@ -158,12 +178,19 @@
 		display: block;
 		width: 100%;
 	}
+	.score.points {
+		padding-left: 1.2em;
+		padding-right: 1.2em;
+	}
  
   .bench {
      width: 30%;
      float: left;
      margin-left: 0.2em;
 	 padding-left: 0.4em;
+  }
+  .bench .button, .half{
+	  width: 50%;
   }
   .honk {
 	  margin: 1em;
@@ -174,11 +201,11 @@
 	  color: white;
 	  padding: 0.8em;
   }
-  .honk.left {
+  .left {
 	  float: left;
 	  clear:right;
   }
-  .honk.right {
+  .right {
 	  float: right;
   }
 
