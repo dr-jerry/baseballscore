@@ -2,15 +2,17 @@
 	// Inspired by https://svelte.dev/repl/810b0f1e16ac4bbd8af8ba25d5e0deff?version=3.4.2.
 	import {flip} from 'svelte/animate';
 	
-	let theGame = {"thuis": {innings: [{points: 0, outs: 0}],"border-color": "orange", "bg-color": "blue", "text-color": "white", teamname: "thamen hbu12"
+	let theGame = {"thuis": {innings: [],"border-color": "orange", "bg-color": "blue", "text-color": "white", teamname: "thamen hbu12"
 	, names:["Arno", "Finn", "Sasha", "Djaeno", "Steffan", "Jayjay", "Pascal"], loc: "field"},
-	   "uit": {innings: [{points: 0, outs: 0, bats: ""}], "border-color": "red", "bg-color": "yellow", "text-color": "black", teamname: "ovvo-survivors hbu2"
+	   "uit": {innings: [], "border-color": "red", "bg-color": "yellow", "text-color": "black", teamname: "ovvo-survivors hbu2"
 	   , names:["Jack", "Frans", "Arie", "Dessel", "Nour", "Izzy", "Ben"], loc: "betting"}}
 
-    theGame.thuis.players = theGame.thuis.names.map((n,i) => ({name: n, innings: [{bats: "", loc: "bench"}], loc: "field", index: i, teamname: theGame.thuis.teamname}))
-	theGame.uit.players = theGame.uit.names.map((n,i) => ({name: n, innings: [{bats: "", loc: "bench"}], loc: "bench", index: i, teamname: theGame.uit.teamname}))
+    theGame.thuis.players = theGame.thuis.names.map((n,i) => ({name: n, innings: [], loc: "field", index: i, teamname: theGame.thuis.teamname}))
+	theGame.uit.players = theGame.uit.names.map((n,i) => ({name: n, innings: [], loc: "bench", index: i, teamname: theGame.uit.teamname}))
 
-	let batting = "uit";
+	const locs = ["bench", "home", "one", "two", "three"]
+	const teamInd = ["thuis", "uit"]
+
 	let round = 1;
 
 	function playerScores (player) {
@@ -24,26 +26,32 @@
 	}
 
 	function doBat(char) {
+		// 'S' for strike, 'B' for ball.
+		// updates internal state for player on home by appending char 
+		// to the bats in the players' last inning.
 		let index = bases["home"][0].index
 		let bat = theGame[batting].players[index].innings.slice(-1)[0].bats + char
 		theGame = modifyPlayer(batting, index, {inning: {bats: bat}})
 	}
 
 	function getScore(teams, ind) {
+		// iterate and accumulate over the players and players' innings of indicated team 
+		// and count where score in innings == 1
 		return teams[ind].players.reduce((acc, p) => {
-			let l = p.innings.filter(i => i.score === 1).length;
-		    console.log("returning: " + l + " + " + acc + " = " + (l+acc));
-		    return l + acc
+		    return p.innings.filter(i => i.score === 1).length + acc
 		},0)
 	}
 
 	function baseOccupation(teams, teamid) {
-		const locs = ["bench", "home", "one", "two", "three"]
+		// return map with locs' elements as key and an array with players as value.
+		// temporarily more players are allowed on the bases (to facilitate dragging)
 		return locs.reduce((map, loc) => {map[loc] = findPlayers(loc, teams, teamid);
 					return map}, {})
 	}
 
 	function findPlayers(loc, teams, teamid) {
+		// finds players on a certain location.
+		// (for bench) this list is sorted by 1) nr of innings 2) original index.
 		return teams[teamid].players ? teams[teamid].players.filter(p => p.loc === loc).sort((a, b) => {
 			let result = 0;
 			if (a.innings.length > b.innings.length) result = 1
@@ -55,22 +63,40 @@
 		}) : []
 	}
 
+	function switchBat() {
+		theGame[teamInd[round % 2]].players.forEach(player => {
+			player.loc = "field"});
+			// let lastInning = player.innings.filter(i => i.round === round).slice(-1)[0]
+			// if (lastInning) {
+			// 	lastInning.loc = "field"
+			// }
+		theGame[teamInd[(round + 1) % 2]].players.forEach(player => {
+			player.loc = "bench"});
+		round += 1
+	}
+
 	$: bases = baseOccupation(theGame, batting)
+	$: batting = teamInd[round % 2]
+
 
 	function modifyPlayer(ind, index, value) {
 		// returns a modified game state.
 		// ind -> "thuis (receivers)" or "uit (visitors)"; index: bench index of player (sequential order), 
-		// value: new value to be added, value can contain an inning which will be merged with last inning.
+		// value: new value to be added, value can contain an inning 
+		// if inning contains the attribute 'nr' (loc == 'home' might be better)
+		// a new inning is appended, otherwise it will be merged with last inning.
 		// location in value will be copied into inning location.
 
 		let players = theGame[ind].players
 		let thePlayer = players[index]
 		const {inning, ...rest} = value
+		let newInning = (inning && ('nr' in inning));
+		let lastInning = newInning ? thePlayer.innings.length : -1;
 		let inLoc = ((rest && rest.loc) ? {loc: rest.loc} : {})
-		let thisInning = {...thePlayer.innings.slice(-1)[0], ...inning, ...inLoc}
+		let thisInning = newInning ? {...inning , ...(!('bats' in inning) && {bats: ''})} : {...thePlayer.innings.slice(-1)[0], ...inning, ...inLoc}
 		return {...theGame, ...{[ind]: {...theGame[ind], 
 			...{players: [...players.slice(0,index), 
-				{...thePlayer, ...rest, ...{innings : [...thePlayer.innings.slice(0,-1)
+				{...thePlayer, ...rest, ...{innings : [...thePlayer.innings.slice(0,lastInning)
 														, thisInning
 					   									, ...(inLoc.loc && inLoc.loc === "bench" ? [{bats: "", loc: "bench"}] : [])]
 											}}
@@ -91,7 +117,7 @@
 		console.log("target: " + target + " source : " + thePlayer.source + " player: " +  JSON.stringify(thePlayer) + " hello ");
 		//console.log("honks " + JSON.stringify(honks));
 		if (thePlayer.source === "bench" && target === "home") { 
-			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "home"})
+			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "home", inning: {loc: "home", nr: Math.floor((round + 1)/2)}})
 		} else if (target === "one" && thePlayer.source === "home") {
 			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "one"})
 		} else if (target === "two" && thePlayer.source === "one") {
@@ -99,9 +125,9 @@
 		} else if (target === "three" && thePlayer.source === "two") {
 			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "three"})
 		} else if (target === "home" && thePlayer.source === "three") {
-			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "bench", inning: {nr: round, score: 1}})
+			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "bench", inning: {score: 1}})
 		} else if (target === "bench") {
-			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "bench", inning: {nr: round, score: 0, out: true}})
+			theGame = modifyPlayer(batting, thePlayer.player.index, {loc: "bench", inning: {score: 0, out: true}})
 		}
 	}
 
@@ -123,6 +149,7 @@
       {player.name} {playerScores(player)}
 	</div>
   {/each}
+  <div class="button" on:click={e => switchBat()}>Switch Sides</div>
 </div>
 <div class="field">
 	<div class="row">
