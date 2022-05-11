@@ -90,16 +90,14 @@
 		let players = theGame[ind].players
 		let thePlayer = players[index]
 		const {inning, ...rest} = value
-		let newInning = (inning && ('nr' in inning));
+		let newInning = (value.loc === "home");
 		let lastInning = newInning ? thePlayer.innings.length : -1;
 		let inLoc = ((rest && rest.loc) ? {loc: rest.loc} : {})
 		let thisInning = newInning ? {...inning , ...(!('bats' in inning) && {bats: ''})} : {...thePlayer.innings.slice(-1)[0], ...inning, ...inLoc}
 		return {...theGame, ...{[ind]: {...theGame[ind], 
 			...{players: [...players.slice(0,index), 
 				{...thePlayer, ...rest, ...{innings : [...thePlayer.innings.slice(0,lastInning)
-														, thisInning
-					   									, ...(inLoc.loc && inLoc.loc === "bench" ? [{bats: "", loc: "bench"}] : [])]
-											}}
+		      , thisInning]}}
 					, ...players.slice(index + 1)]}}}}
 	}
 
